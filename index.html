@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebGIS Hotspot - TN Tambora</title>
-    <!-- Memanggil CSS Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         body { margin: 0; padding: 0; }
@@ -14,55 +13,44 @@
 <body>
     <div id="map"></div>
 
-    <!-- Memanggil JS Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // 1. Inisialisasi Peta & Setting AOI ke TN Tambora
         var map = L.map('map').setView([-8.2500, 117.9500], 11);
 
-        // 2. Menambahkan Basemap (Esri World Imagery)
         var basemap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri'
         }).addTo(map);
 
-        // 3. Memasukkan MAP_KEY NASA FIRMS
-        var myMapKey = 'bcd8b7f4bc826aab3b3928e4da79f267'; 
+        // Mengunci MAP_KEY secara absolut ke dalam Base URL
+        var firmsURL = 'https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/latest?MAP_KEY=bcd8b7f4bc826aab3b3928e4da79f267';
 
-        // 4. Menambahkan WMS NASA FIRMS (TERRA dan AQUA - MODIS) 24 Jam Terakhir
-        var hotspotModis = L.tileLayer.wms('https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/latest', {
-            MAP_KEY: myMapKey,
+        var hotspotModis = L.tileLayer.wms(firmsURL, {
             layers: 'fires_modis_24',
             format: 'image/png',
             transparent: true,
             attribution: 'NASA FIRMS (Terra/Aqua)'
         });
 
-        // 5. Menambahkan WMS NASA FIRMS (SNPP - VIIRS) 24 Jam Terakhir
-        var hotspotSNPP = L.tileLayer.wms('https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/latest', {
-            MAP_KEY: myMapKey,
+        var hotspotSNPP = L.tileLayer.wms(firmsURL, {
             layers: 'fires_viirs_snpp_24',
             format: 'image/png',
             transparent: true,
             attribution: 'NASA FIRMS (SNPP)'
         });
 
-        // 6. Menambahkan WMS NASA FIRMS (NOAA20 - VIIRS) 24 Jam Terakhir
-        var hotspotNOAA20 = L.tileLayer.wms('https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/latest', {
-            MAP_KEY: myMapKey,
+        var hotspotNOAA20 = L.tileLayer.wms(firmsURL, {
             layers: 'fires_viirs_noaa20_24',
             format: 'image/png',
             transparent: true,
             attribution: 'NASA FIRMS (NOAA20)'
         });
 
-        // 7. Membuat Layer Control
         var overlayMaps = {
             "Hotspot TERRA/AQUA (24 Jam)": hotspotModis,
             "Hotspot SNPP (24 Jam)": hotspotSNPP,
             "Hotspot NOAA20 (24 Jam)": hotspotNOAA20
         };
 
-        // Menambahkan basemap dan hotspot ke menu kontrol, dan mengaktifkan layer default
         L.control.layers({"Basemap Imagery": basemap}, overlayMaps).addTo(map);
         hotspotModis.addTo(map);
         hotspotSNPP.addTo(map);
