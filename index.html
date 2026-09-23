@@ -21,8 +21,8 @@
             attribution: 'Tiles &copy; Esri'
         }).addTo(map);
 
-        // Mengunci MAP_KEY secara absolut ke dalam Base URL
-        var firmsURL = 'https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/latest?MAP_KEY=bcd8b7f4bc826aab3b3928e4da79f267';
+        // MAP_KEY dimasukkan langsung ke dalam path URL utama
+        var firmsURL = 'https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/bcd8b7f4bc826aab3b3928e4da79f267/';
 
         var hotspotModis = L.tileLayer.wms(firmsURL, {
             layers: 'fires_modis_24',
