@@ -3,58 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGIS Hotspot - TN Tambora</title>
+    <title>WebGIS Hotspot Interaktif - TN Tambora</title>
+    <!-- CSS Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- JS Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- JS Turf.js untuk Geoprocessing di Browser -->
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <!-- JS PapaParse untuk membaca CSV FIRMS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
     <style>
         body { margin: 0; padding: 0; }
         #map { width: 100%; height: 100vh; }
+        
+        .info-panel {
+            padding: 12px 16px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+            color: #333;
+            min-width: 200px;
+        }
+        .info-panel h4 {
+            margin: 0 0 8px;
+            color: #777;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        .legend-icon {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+            border: 1px solid #000;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // 1. Inisialisasi Peta
         var map = L.map('map').setView([-8.2500, 117.9500], 11);
 
-        var basemap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri'
         }).addTo(map);
 
-        // MAP_KEY dimasukkan langsung ke dalam path URL utama
-        var firmsURL = 'https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/bcd8b7f4bc826aab3b3928e4da79f267/';
+        // 2. Variabel Penyimpanan Data
+        var kawasanGeoJSON; 
+        var hotspotLayerGroup = L.layerGroup().addTo(map);
+        var stats = { high: 0, medium: 0, low: 0 };
 
-        var hotspotModis = L.tileLayer.wms(firmsURL, {
-            layers: 'fires_modis_24',
-            format: 'image/png',
-            transparent: true,
-            attribution: 'NASA FIRMS (Terra/Aqua)'
-        });
-
-        var hotspotSNPP = L.tileLayer.wms(firmsURL, {
-            layers: 'fires_viirs_snpp_24',
-            format: 'image/png',
-            transparent: true,
-            attribution: 'NASA FIRMS (SNPP)'
-        });
-
-        var hotspotNOAA20 = L.tileLayer.wms(firmsURL, {
-            layers: 'fires_viirs_noaa20_24',
-            format: 'image/png',
-            transparent: true,
-            attribution: 'NASA FIRMS (NOAA20)'
-        });
-
-        var overlayMaps = {
-            "Hotspot TERRA/AQUA (24 Jam)": hotspotModis,
-            "Hotspot SNPP (24 Jam)": hotspotSNPP,
-            "Hotspot NOAA20 (24 Jam)": hotspotNOAA20
+        // 3. Panel Informasi
+        var infoControl = L.control({position: 'topright'});
+        infoControl.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info-panel');
+            this.update();
+            return this._div;
         };
+        infoControl.update = function () {
+            this._div.innerHTML = '<h4>Rekap Hotspot TN Tambora</h4>' +
+                '<i class="legend-icon" style="background: red;"></i> High: <b>' + stats.high + '</b> titik<br>' +
+                '<i class="legend-icon" style="background: orange;"></i> Medium: <b>' + stats.medium + '</b> titik<br>' +
+                '<i class="legend-icon" style="background: yellow;"></i> Low: <b>' + stats.low + '</b> titik<br><br>' +
+                '<small><i>Data: NASA FIRMS (24 Jam Terakhir)</i></small>';
+        };
+        infoControl.addTo(map);
 
-        L.control.layers({"Basemap Imagery": basemap}, overlayMaps).addTo(map);
-        hotspotModis.addTo(map);
-        hotspotSNPP.addTo(map);
-        hotspotNOAA20.addTo(map);
+        // 4. Konfigurasi Simbol (Marker)
+        function getMarkerStyle(confidenceLevel) {
+            let color = 'yellow'; // Default Low
+            
+            if (confidenceLevel === 'h' || confidenceLevel >= 80) {
+                color = 'red';
+            } else if (confidenceLevel === 'n' || (confidenceLevel >= 30 && confidenceLevel < 80)) {
+                color = 'orange';
+            }
+
+            return {
+                radius: 6,
+                fillColor: color,
+                color: "#000",
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8
+            };
+        }
+
+        function updateStats(confidenceLevel) {
+            if (confidenceLevel === 'h' || confidenceLevel >= 80) stats.high++;
+            else if (confidenceLevel === 'n' || (confidenceLevel >= 30 && confidenceLevel < 80)) stats.medium++;
+            else stats.low++;
+        }
+
+        // 5. Fungsi Utama Memproses Data
+        async function loadMapData() {
+            try {
+                // A. Tarik batas Kawasan GeoJSON
+                const geojsonResponse = await fetch('tambora.geojson');
+                kawasanGeoJSON = await geojsonResponse.json();
+                
+                L.geoJSON(kawasanGeoJSON, {
+                    style: { color: "#00FF00", weight: 2, fillOpacity: 0.1 }
+                }).addTo(map);
+
+                // B. Tarik Data CSV FIRMS menggunakan API Token
+                const api_key = 'bcd8b7f4bc826aab3b3928e4da79f267'; 
+                const bbox = '117.7,-8.4,118.2,-8.1'; 
+                
+                const urls = [
+                    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${api_key}/MODIS_NRT/${bbox}/1`,
+                    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${api_key}/VIIRS_SNPP_NRT/${bbox}/1`,
+                    `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${api_key}/VIIRS_NOAA20_NRT/${bbox}/1`
+                ];
+
+                for (const url of urls) {
+                    Papa.parse(url, {
+                        download: true,
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            if(results.data && results.data.length > 0) {
+                                results.data.forEach(row => {
+                                    if(!row.latitude || !row.longitude) return;
+
+                                    let lat = parseFloat(row.latitude);
+                                    let lon = parseFloat(row.longitude);
+                                    let conf = row.confidence; 
+                                    
+                                    let pt = turf.point([lon, lat]);
+                                    let isInside = false;
+
+                                    turf.geomEach(kawasanGeoJSON, function (currentGeometry) {
+                                        if(turf.booleanPointInPolygon(pt, currentGeometry)) {
+                                            isInside = true;
+                                        }
+                                    });
+
+                                    if (isInside) {
+                                        updateStats(conf);
+                                        let sourceStr = row.satellite ? row.satellite : 'Sensor';
+
+                                        L.circleMarker([lat, lon], getMarkerStyle(conf))
+                                         .bindPopup(`<b>Satelit:</b> ${sourceStr} <br> <b>Confidence:</b> ${conf} <br> <b>Akuisisi:</b> ${row.acq_date} ${row.acq_time}`)
+                                         .addTo(hotspotLayerGroup);
+                                    }
+                                });
+                                infoControl.update();
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Gagal memuat data spasial:", error);
+                alert("Gagal membaca file batas kawasan. Pastikan 'tambora.geojson' sudah diunggah.");
+            }
+        }
+
+        loadMapData();
     </script>
 </body>
 </html>
