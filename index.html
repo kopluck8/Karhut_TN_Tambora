@@ -17,18 +17,49 @@
         body { margin: 0; padding: 0; }
         #map { width: 100%; height: 100vh; }
         
+        /* Panel Informasi yang bisa di-toggle */
         .info-panel {
-            padding: 12px 16px;
+            padding: 0;
             font: 14px/16px Arial, Helvetica, sans-serif;
             background: rgba(255,255,255,0.9);
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             border-radius: 5px;
             color: #333;
-            min-width: 220px;
+            min-width: 150px;
+            cursor: pointer; /* Menandakan elemen bisa diklik */
+            transition: all 0.3s ease;
         }
-        .info-panel h4 { margin: 0 0 8px; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 5px; }
-        .info-panel .total { font-size: 16px; font-weight: bold; margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px; }
 
+        .info-header {
+            padding: 10px 15px;
+            font-weight: bold;
+            background: #fff;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        /* Kelas saat panel ditarik (expanded) */
+        .info-content {
+            display: none; /* Sembunyikan konten secara default */
+            padding: 12px 16px;
+            border-top: 1px solid #ddd;
+        }
+
+        /* Tampilkan konten hanya saat elemen induk memiliki class .expanded */
+        .info-panel.expanded .info-content {
+            display: block;
+        }
+        
+        .info-panel.expanded .info-header {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            background: #f1f1f1;
+        }
+
+        .info-content h4 { margin: 0 0 8px; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 5px; }
+        .info-content .total { font-size: 16px; font-weight: bold; margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px; }
+
+        /* Label pada Map */
         .map-label { background: transparent !important; border: none !important; box-shadow: none !important; font-family: Arial, sans-serif; text-align: center; }
         .map-label::before { display: none; }
         .label-resor { color: #00FF00; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; }
@@ -46,7 +77,7 @@
     <div id="map"></div>
 
     <script>
-        var map = L.map('map').setView([-8.250189, 118.046122], 10);
+        var map = L.map('map').setView([-8.284784, 118.132547], 11);
 
         var basemap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri'
@@ -61,17 +92,46 @@
         var stats = { "Resort Doro Ncanga": 0, "Resort Pancasila": 0, "Resort Doropeti": 0, "Resort Kawinda Toi": 0, "Resort Oi Katupa": 0, "Resort Piong": 0, "Total": 0 };
 
         var infoControl = L.control({position: 'topright'});
-        infoControl.onAdd = function (map) { this._div = L.DomUtil.create('div', 'info-panel'); this.update(); return this._div; };
+        infoControl.onAdd = function (map) { 
+            this._div = L.DomUtil.create('div', 'info-panel');
+            
+            // Inisialisasi struktur div untuk header dan content
+            this._div.innerHTML = `
+                <div class="info-header">📊 Data Hotspot (Klik)</div>
+                <div class="info-content" id="info-content-data">Memuat data...</div>
+            `;
+            
+            // Event Listener untuk Buka/Tutup
+            this._div.onclick = function() {
+                this.classList.toggle('expanded');
+                // Ubah teks header saat ditekan
+                var header = this.querySelector('.info-header');
+                if (this.classList.contains('expanded')) {
+                    header.innerHTML = '📊 Tutup Panel';
+                } else {
+                    header.innerHTML = '📊 Data Hotspot (Klik)';
+                }
+            };
+            
+            // Mencegah klik menembus ke peta di belakangnya
+            L.DomEvent.disableClickPropagation(this._div);
+            
+            return this._div; 
+        };
+        
         infoControl.update = function () {
-            this._div.innerHTML = '<h4>Sebaran Hotspot per Resor</h4>' +
-                'Doro Ncanga: <b>' + stats["Resort Doro Ncanga"] + '</b><br>' +
-                'Pancasila: <b>' + stats["Resort Pancasila"] + '</b><br>' +
-                'Doropeti: <b>' + stats["Resort Doropeti"] + '</b><br>' +
-                'Kawinda Toi: <b>' + stats["Resort Kawinda Toi"] + '</b><br>' +
-                'Oi Katupa: <b>' + stats["Resort Oi Katupa"] + '</b><br>' +
-                'Piong: <b>' + stats["Resort Piong"] + '</b><br>' +
-                '<div class="total">Total Kawasan: ' + stats["Total"] + ' Titik</div>' +
-                '<small style="display:block; margin-top:8px;"><i>Data: NASA FIRMS (24 Jam)</i></small>';
+            var contentDiv = this._div.querySelector('#info-content-data');
+            if (contentDiv) {
+                contentDiv.innerHTML = '<h4>Sebaran per Resor</h4>' +
+                    'Doro Ncanga: <b>' + stats["Resort Doro Ncanga"] + '</b><br>' +
+                    'Pancasila: <b>' + stats["Resort Pancasila"] + '</b><br>' +
+                    'Doropeti: <b>' + stats["Resort Doropeti"] + '</b><br>' +
+                    'Kawinda Toi: <b>' + stats["Resort Kawinda Toi"] + '</b><br>' +
+                    'Oi Katupa: <b>' + stats["Resort Oi Katupa"] + '</b><br>' +
+                    'Piong: <b>' + stats["Resort Piong"] + '</b><br>' +
+                    '<div class="total">Total Kawasan: ' + stats["Total"] + ' Titik</div>' +
+                    '<small style="display:block; margin-top:8px;"><i>Data: NASA FIRMS (24 Jam)</i></small>';
+            }
         };
         infoControl.addTo(map);
 
@@ -82,7 +142,6 @@
             return { radius: 5, fillColor: color, color: "#000", weight: 1, opacity: 1, fillOpacity: 0.9 };
         }
 
-        // Translasi Level Confidence (Menyelaraskan MODIS & VIIRS ke teks High/Medium/Low)
         function getConfidenceText(conf) {
             if (conf === 'h' || conf >= 80) return 'High';
             if (conf === 'n' || (conf >= 30 && conf < 80)) return 'Medium';
@@ -142,7 +201,6 @@
                                 if (isInside) {
                                     if (stats[matchedResort] !== undefined) { stats[matchedResort]++; stats["Total"]++; }
 
-                                    // Merakit Popup Tabel ala Sipongi
                                     let dateStr = row.acq_date + ' ' + row.acq_time + ' UTC';
                                     let satStr = row.satellite ? (row.satellite === 'N' ? 'NASA-SNPP' : (row.satellite === '1' ? 'NASA-NOAA20' : 'NASA-TERRA/AQUA')) : 'Satelit';
                                     let confText = getConfidenceText(row.confidence);
@@ -168,6 +226,7 @@
                                      .addTo(hotspotLayerGroup);
                                 }
                             });
+                            // Update angka setelah iterasi
                             infoControl.update();
                         }
                     }
