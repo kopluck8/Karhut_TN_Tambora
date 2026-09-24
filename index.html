@@ -3,21 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hotspot TN Gunung Tambora</title>
-    <!-- CSS Leaflet -->
+    <title>WebGIS Hotspot Resor - TN Tambora</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <!-- JS Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- JS Turf.js -->
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <!-- JS PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <style>
         body { margin: 0; padding: 0; }
         #map { width: 100%; height: 100vh; }
         
-        /* Panel Informasi yang bisa di-toggle */
         .info-panel {
             padding: 0;
             font: 14px/16px Arial, Helvetica, sans-serif;
@@ -26,47 +21,20 @@
             border-radius: 5px;
             color: #333;
             min-width: 150px;
-            cursor: pointer; /* Menandakan elemen bisa diklik */
+            cursor: pointer;
             transition: all 0.3s ease;
         }
-
-        .info-header {
-            padding: 10px 15px;
-            font-weight: bold;
-            background: #fff;
-            border-radius: 5px;
-            text-align: center;
-        }
-
-        /* Kelas saat panel ditarik (expanded) */
-        .info-content {
-            display: none; /* Sembunyikan konten secara default */
-            padding: 12px 16px;
-            border-top: 1px solid #ddd;
-        }
-
-        /* Tampilkan konten hanya saat elemen induk memiliki class .expanded */
-        .info-panel.expanded .info-content {
-            display: block;
-        }
-        
-        .info-panel.expanded .info-header {
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
-            background: #f1f1f1;
-        }
-
+        .info-header { padding: 10px 15px; font-weight: bold; background: #fff; border-radius: 5px; text-align: center; }
+        .info-content { display: none; padding: 12px 16px; border-top: 1px solid #ddd; }
+        .info-panel.expanded .info-content { display: block; }
+        .info-panel.expanded .info-header { border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: #f1f1f1; }
         .info-content h4 { margin: 0 0 8px; color: #111; border-bottom: 2px solid #ccc; padding-bottom: 5px; }
         .info-content .total { font-size: 16px; font-weight: bold; margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px; }
-
-        /* Label pada Map */
         .map-label { background: transparent !important; border: none !important; box-shadow: none !important; font-family: Arial, sans-serif; text-align: center; }
         .map-label::before { display: none; }
         .label-resor { color: #00FF00; font-size: 12px; font-weight: bold; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; }
         .label-grid { color: #FFFFFF; font-size: 9px; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; }
         .label-jalur { color: #FF00FF; font-size: 10px; font-weight: bold; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; }
-
-        /* Gaya Tabel Popup ala Sipongi */
         .sipongi-popup table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; }
         .sipongi-popup th, .sipongi-popup td { padding: 6px; border-bottom: 1px solid #ddd; text-align: left; }
         .sipongi-popup th { width: 40%; font-weight: bold; color: #333; background: #f9f9f9;}
@@ -77,7 +45,7 @@
     <div id="map"></div>
 
     <script>
-        var map = L.map('map').setView([-8.280727, 118.057677], 11);
+        var map = L.map('map').setView([-8.2500, 117.9500], 11);
 
         var basemap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri'
@@ -94,17 +62,12 @@
         var infoControl = L.control({position: 'topright'});
         infoControl.onAdd = function (map) { 
             this._div = L.DomUtil.create('div', 'info-panel');
-            
-            // Inisialisasi struktur div untuk header dan content
             this._div.innerHTML = `
                 <div class="info-header">📊 Data Hotspot (Klik)</div>
                 <div class="info-content" id="info-content-data">Memuat data...</div>
             `;
-            
-            // Event Listener untuk Buka/Tutup
             this._div.onclick = function() {
                 this.classList.toggle('expanded');
-                // Ubah teks header saat ditekan
                 var header = this.querySelector('.info-header');
                 if (this.classList.contains('expanded')) {
                     header.innerHTML = '📊 Tutup Panel';
@@ -112,10 +75,7 @@
                     header.innerHTML = '📊 Data Hotspot (Klik)';
                 }
             };
-            
-            // Mencegah klik menembus ke peta di belakangnya
             L.DomEvent.disableClickPropagation(this._div);
-            
             return this._div; 
         };
         
@@ -180,10 +140,13 @@
                 `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${api_key}/VIIRS_NOAA20_NRT/${bbox}/1`
             ];
 
+            let dataLoadedCount = 0;
+
             for (const url of urls) {
                 Papa.parse(url, {
                     download: true, header: true, skipEmptyLines: true,
                     complete: function(results) {
+                        dataLoadedCount++;
                         if(results.data && results.data.length > 0) {
                             results.data.forEach(row => {
                                 if(!row.latitude || !row.longitude) return;
@@ -201,7 +164,24 @@
                                 if (isInside) {
                                     if (stats[matchedResort] !== undefined) { stats[matchedResort]++; stats["Total"]++; }
 
-                                    let dateStr = row.acq_date + ' ' + row.acq_time + ' UTC';
+                                    // 1. Parsing waktu UTC dari CSV FIRMS
+                                    // FIRMS format: acq_date="YYYY-MM-DD", acq_time="HHMM" (cth: "0545" untuk 05:45)
+                                    let acqTimeStr = row.acq_time.padStart(4, '0'); // Memastikan format 4 digit
+                                    let hoursUTC = acqTimeStr.substring(0, 2);
+                                    let minutesUTC = acqTimeStr.substring(2, 4);
+                                    
+                                    // Membuat objek Date berdasarkan UTC
+                                    let utcDate = new Date(`${row.acq_date}T${hoursUTC}:${minutesUTC}:00Z`);
+                                    
+                                    // 2. Format menjadi String lokal Indonesia (WITA)
+                                    let dateOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
+                                    let timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Makassar' };
+                                    
+                                    let formattedDate = new Intl.DateTimeFormat('id-ID', dateOptions).format(utcDate);
+                                    let formattedTime = new Intl.DateTimeFormat('id-ID', timeOptions).format(utcDate);
+                                    
+                                    let dateStr = `${formattedDate} ${formattedTime.replace(/\./g, ':')} WITA`;
+
                                     let satStr = row.satellite ? (row.satellite === 'N' ? 'NASA-SNPP' : (row.satellite === '1' ? 'NASA-NOAA20' : 'NASA-TERRA/AQUA')) : 'Satelit';
                                     let confText = getConfidenceText(row.confidence);
                                     let gmapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
@@ -226,7 +206,10 @@
                                      .addTo(hotspotLayerGroup);
                                 }
                             });
-                            // Update angka setelah iterasi
+                        }
+                        
+                        // Perbarui panel jika semua URL (3 sumber satelit) sudah selesai diproses
+                        if (dataLoadedCount === urls.length) {
                             infoControl.update();
                         }
                     }
