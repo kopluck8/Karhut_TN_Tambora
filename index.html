@@ -45,6 +45,9 @@
     <div id="map"></div>
 
     <script>
+        var map = L.map('map').setView([-8.2500, 117.9500], 11);
+
+        // Basemap Sentinel-2 WMS
         var basemap = L.tileLayer.wms('https://sh.dataspace.copernicus.eu/ogc/wms/9813f1f4-8271-42f6-b57c-bbe8571e9499', {
             layers: 'TRUE-COLOR-S2L2A',
             format: 'image/jpeg',
@@ -92,7 +95,7 @@
                     'Oi Katupa: <b>' + stats["Resort Oi Katupa"] + '</b><br>' +
                     'Piong: <b>' + stats["Resort Piong"] + '</b><br>' +
                     '<div class="total">Total Kawasan: ' + stats["Total"] + ' Titik</div>' +
-                    '<small style="display:block; margin-top:8px;"><i>Data: NASA FIRMS (24 Jam)</i></small>';
+                    '<small style="display:block; margin-top:8px;"><i>Data: NASA FIRMS (48 Jam)</i></small>';
             }
         };
         infoControl.addTo(map);
@@ -136,6 +139,7 @@
 
             const api_key = 'bcd8b7f4bc826aab3b3928e4da79f267'; 
             const bbox = '117.7,-8.4,118.2,-8.1'; 
+            
             const urls = [
                 `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${api_key}/MODIS_NRT/${bbox}/1`,
                 `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${api_key}/VIIRS_SNPP_NRT/${bbox}/1`,
@@ -166,16 +170,12 @@
                                 if (isInside) {
                                     if (stats[matchedResort] !== undefined) { stats[matchedResort]++; stats["Total"]++; }
 
-                                    // 1. Parsing waktu UTC dari CSV FIRMS
-                                    // FIRMS format: acq_date="YYYY-MM-DD", acq_time="HHMM" (cth: "0545" untuk 05:45)
-                                    let acqTimeStr = row.acq_time.padStart(4, '0'); // Memastikan format 4 digit
+                                    let acqTimeStr = row.acq_time.padStart(4, '0'); 
                                     let hoursUTC = acqTimeStr.substring(0, 2);
                                     let minutesUTC = acqTimeStr.substring(2, 4);
                                     
-                                    // Membuat objek Date berdasarkan UTC
                                     let utcDate = new Date(`${row.acq_date}T${hoursUTC}:${minutesUTC}:00Z`);
                                     
-                                    // 2. Format menjadi String lokal Indonesia (WITA)
                                     let dateOptions = { day: '2-digit', month: '2-digit', year: 'numeric' };
                                     let timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Makassar' };
                                     
@@ -210,7 +210,6 @@
                             });
                         }
                         
-                        // Perbarui panel jika semua URL (3 sumber satelit) sudah selesai diproses
                         if (dataLoadedCount === urls.length) {
                             infoControl.update();
                         }
