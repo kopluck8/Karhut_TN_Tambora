@@ -45,10 +45,12 @@
     <div id="map"></div>
 
     <script>
-        var map = L.map('map').setView([-8.2500, 117.9500], 11);
-
-        var basemap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri'
+        var basemap = L.tileLayer.wms('https://sh.dataspace.copernicus.eu/ogc/wms/9813f1f4-8271-42f6-b57c-bbe8571e9499', {
+            layers: 'TRUE-COLOR-S2L2A',
+            format: 'image/jpeg',
+            transparent: false,
+            maxZoom: 16,
+            attribution: '&copy; Copernicus Data Space Ecosystem'
         }).addTo(map);
 
         var resorGeoJSON;
